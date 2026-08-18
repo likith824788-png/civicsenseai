@@ -11,15 +11,23 @@ let firebaseInitialized = false
 
 try {
   let serviceAccount
-  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-    serviceAccount = typeof process.env.FIREBASE_SERVICE_ACCOUNT === 'string'
-      ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
-      : process.env.FIREBASE_SERVICE_ACCOUNT
-  } else if (process.env.SERVICE_ACCOUNT_KEY) {
-    serviceAccount = JSON.parse(process.env.SERVICE_ACCOUNT_KEY)
+  const rawServiceAccount = process.env.FIREBASE_SERVICE_ACCOUNT || process.env.SERVICE_ACCOUNT_KEY || process.env.FIREBASE_CONFIG_JSON
+  
+  if (rawServiceAccount) {
+    try {
+      serviceAccount = typeof rawServiceAccount === 'string' ? JSON.parse(rawServiceAccount) : rawServiceAccount
+    } catch {
+      // Try base64 decoding if raw JSON parse fails
+      const decoded = Buffer.from(rawServiceAccount, 'base64').toString('utf8')
+      serviceAccount = JSON.parse(decoded)
+    }
   } else {
     const serviceAccountPath = process.env.GOOGLE_APPLICATION_CREDENTIALS || './serviceAccountKey.json'
     serviceAccount = JSON.parse(readFileSync(serviceAccountPath, 'utf8'))
+  }
+
+  if (serviceAccount && serviceAccount.private_key) {
+    serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n')
   }
 
   admin.initializeApp({
@@ -162,9 +170,9 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' })
 })
 
-app.listen(PORT, () => {
-  console.log(`\n🏛️  CivicSense AI Backend running on http://localhost:${PORT}`)
-  console.log(`   Health: http://localhost:${PORT}/api/health`)
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`\n🏛️  CivicSense AI Backend running on http://0.0.0.0:${PORT}`)
+  console.log(`   Health: http://0.0.0.0:${PORT}/api/health`)
   console.log(`   Gemini API Key: ${process.env.GEMINI_API_KEY ? '✅ configured' : '❌ missing'}`)
   console.log(`   Firebase Admin: ${firebaseInitialized ? '✅ initialized' : '❌ not initialized'}\n`)
 })
