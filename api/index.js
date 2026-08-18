@@ -88,7 +88,7 @@ app.use(
   cors({
     origin: (origin, callback) => {
       if (!origin) return callback(null, true)
-      if (allowedOrigins.includes(origin) || !IS_PRODUCTION) {
+      if (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app') || !IS_PRODUCTION) {
         return callback(null, true)
       }
       return callback(new Error(`CORS: origin ${origin} not allowed`), false)
