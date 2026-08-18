@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.env
+.env*.local
+*.local
+.DS_Store
+
+# Firebase & Secret Keys
+serviceAccountKey.json
+*serviceAccountKey*.json
+*.pem
+*.key
+.system_generated/
+

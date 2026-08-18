@@ -1,0 +1,3 @@
+-- This file is no longer used.
+-- The project has been migrated from Supabase to Firebase.
+-- See firestore.rules and storage.rules for the Firebase equivalents.
