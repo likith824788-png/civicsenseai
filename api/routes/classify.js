@@ -29,7 +29,7 @@ router.post('/classify', upload.single('image'), async (req, res) => {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey)
-    const MODEL_CANDIDATES = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-1.5-flash-latest']
+    const MODEL_CANDIDATES = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.0-flash-exp']
 
     // Convert buffer to base64
     const base64Image = req.file.buffer.toString('base64')

@@ -46,9 +46,18 @@ router.patch('/reports/:id/upvote', async (req, res) => {
       return res.status(404).json({ error: 'Report not found' })
     }
 
-    // Atomic increment upvotes
+    const reportData = reportDoc.data()
+    const upvotedBy = reportData.upvoted_by || []
+
+    // ── Deduplication check: prevent the same user from voting twice ──
+    if (upvotedBy.includes(user.uid)) {
+      return res.status(409).json({ error: 'You have already upvoted this report', upvotes: reportData.upvotes })
+    }
+
+    // Atomic: increment upvotes AND add user to upvoted_by list
     await reportRef.update({
       upvotes: admin.firestore.FieldValue.increment(1),
+      upvoted_by: admin.firestore.FieldValue.arrayUnion(user.uid),
     })
 
     const updatedDoc = await reportRef.get()
@@ -67,9 +76,10 @@ async function sendStatusEmail(toEmail, reportCategory, newStatus, reportId) {
     return
   }
 
-  const subject = newStatus === 'resolved'
-    ? `🎉 Your Civic Issue Report Has Been Resolved! (${reportCategory})`
-    : `📋 Status Update on Your Civic Report (${newStatus.toUpperCase()})`
+  const subject =
+    newStatus === 'resolved'
+      ? `🎉 Your Civic Issue Report Has Been Resolved! (${reportCategory})`
+      : `📋 Status Update on Your Civic Report (${newStatus.toUpperCase()})`
 
   const htmlContent = `
     <div style="font-family: Arial, sans-serif; background-color: #09090b; color: #ffffff; padding: 30px; border-radius: 12px; max-width: 600px; margin: 0 auto;">
@@ -86,10 +96,12 @@ async function sendStatusEmail(toEmail, reportCategory, newStatus, reportId) {
         <p style="margin: 6px 0 0 0; color: #71717a; font-size: 11px;">Report ID: ${reportId}</p>
       </div>
 
-      <p style="font-size: 14px; color: #e4e4e7; leading-height: 1.6;">
-        ${newStatus === 'resolved'
-          ? '🎉 <strong>Thank you for improving your community!</strong> The reported issue has been marked as <strong>RESOLVED</strong> by local authorities. Your report helped make a real impact.'
-          : 'Thank you for submitting your report. Local authorities are actively updating the status of your issue.'}
+      <p style="font-size: 14px; color: #e4e4e7; line-height: 1.6;">
+        ${
+          newStatus === 'resolved'
+            ? '🎉 <strong>Thank you for improving your community!</strong> The reported issue has been marked as <strong>RESOLVED</strong> by local authorities. Your report helped make a real impact.'
+            : 'Thank you for submitting your report. Local authorities are actively updating the status of your issue.'
+        }
       </p>
 
       <div style="border-top: 1px solid #27272a; margin-top: 25px; padding-top: 15px; text-align: center;">
@@ -103,7 +115,7 @@ async function sendStatusEmail(toEmail, reportCategory, newStatus, reportId) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${resendApiKey}`,
+        Authorization: `Bearer ${resendApiKey}`,
       },
       body: JSON.stringify({
         from: 'CivicSense AI <onboarding@resend.dev>',
@@ -121,12 +133,17 @@ async function sendStatusEmail(toEmail, reportCategory, newStatus, reportId) {
   }
 }
 
-// PATCH /api/reports/:id/status
+// PATCH /api/reports/:id/status  (Admin only)
 router.patch('/reports/:id/status', async (req, res) => {
   try {
     const user = await verifyAuth(req)
     if (!user) {
       return res.status(401).json({ error: 'Unauthorized' })
+    }
+
+    // Enforce admin-only status changes on the server
+    if (!user.admin) {
+      return res.status(403).json({ error: 'Forbidden: Admin access required to change report status' })
     }
 
     const { id } = req.params
@@ -154,7 +171,7 @@ router.patch('/reports/:id/status', async (req, res) => {
     console.log(`📋 Report ${id} status → ${status}`)
 
     // Trigger Resend email notification asynchronously to the reporter
-    if (reportData.user_id && reportData.user_id !== 'seed-user-1') {
+    if (reportData.user_id) {
       try {
         const reporterUser = await admin.auth().getUser(reportData.user_id)
         if (reporterUser && reporterUser.email) {

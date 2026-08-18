@@ -16,6 +16,7 @@ import toast from 'react-hot-toast'
 export default function AdminDashboard() {
   const [allReports, setAllReports] = useState([])
   const [loading, setLoading] = useState(true)
+  const [seeding, setSeeding] = useState(false)
   const [errorMessage, setErrorMessage] = useState(null)
   const [filterCategory, setFilterCategory] = useState('all')
   const [filterStatus, setFilterStatus] = useState('all')
@@ -53,6 +54,25 @@ export default function AdminDashboard() {
 
     return () => unsubscribe()
   }, [])
+
+  // Seed sample reports — calls /api/seed with the admin's Bearer token
+  const handleSeed = async () => {
+    if (seeding) return
+    setSeeding(true)
+    try {
+      const token = auth.currentUser ? await auth.currentUser.getIdToken() : ''
+      const res = await fetch(getApiUrl('/api/seed'), {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Seed failed')
+      toast.success(`🌱 Added ${data.addedCount} sample reports!`)
+    } catch (err) {
+      toast.error(err.message || 'Failed to seed reports')
+    } finally {
+      setSeeding(false)
+    }
+  }
 
   const handleStatusChange = async (reportId, newStatus) => {
     try {
@@ -119,14 +139,14 @@ export default function AdminDashboard() {
           <p className="text-sm text-zinc-400 mt-0.5">Real-time civic issue monitoring & management</p>
         </div>
         <div className="flex items-center gap-2">
-          <a
-            href={getApiUrl('/api/seed')}
-            target="_blank"
-            rel="noreferrer"
-            className="px-3.5 py-1.5 bg-white text-black hover:bg-zinc-200 text-xs font-semibold rounded-lg transition-all shadow-sm flex items-center gap-1.5"
+          <button
+            type="button"
+            onClick={handleSeed}
+            disabled={seeding}
+            className="px-3.5 py-1.5 bg-white text-black hover:bg-zinc-200 text-xs font-semibold rounded-lg transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            🌱 Add Sample Reports
-          </a>
+            {seeding ? '⏳ Adding...' : '🌱 Add Sample Reports'}
+          </button>
         </div>
       </div>
 
@@ -442,14 +462,14 @@ export default function AdminDashboard() {
                 >
                   Reset Filters
                 </button>
-                <a
-                  href={getApiUrl('/api/seed')}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-4 py-2 bg-white text-black font-semibold text-xs rounded-xl hover:bg-zinc-200 transition-colors shadow-md"
+                <button
+                  type="button"
+                  onClick={handleSeed}
+                  disabled={seeding}
+                  className="px-4 py-2 bg-white text-black font-semibold text-xs rounded-xl hover:bg-zinc-200 transition-colors shadow-md disabled:opacity-50"
                 >
-                  🌱 Add 5 Sample Reports
-                </a>
+                  {seeding ? '⏳ Adding...' : '🌱 Add 5 Sample Reports'}
+                </button>
               </div>
             </div>
           )}

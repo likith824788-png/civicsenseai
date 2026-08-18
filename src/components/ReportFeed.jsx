@@ -6,11 +6,12 @@ import {
   limit,
   onSnapshot,
 } from 'firebase/firestore'
+import { useNavigate } from 'react-router-dom'
 import ReportCard from './ReportCard'
 import { ALL_CATEGORIES, STATUS_OPTIONS } from '../lib/severity'
-import { getApiUrl } from '../lib/api'
 
 export default function ReportFeed() {
+  const navigate = useNavigate()
   const [reports, setReports] = useState([])
   const [loading, setLoading] = useState(true)
   const [sortBy, setSortBy] = useState('newest') // 'newest' | 'upvotes'
@@ -129,16 +130,14 @@ export default function ReportFeed() {
           <span className="text-4xl block">🏙️</span>
           <h3 className="text-lg font-bold text-white">No Reports Yet</h3>
           <p className="text-xs text-zinc-400 leading-relaxed">
-            Be the first to report a civic issue or click below to populate sample reports!
+            Be the first to report a civic issue in your community!
           </p>
-          <a
-            href={getApiUrl('/api/seed')}
-            target="_blank"
-            rel="noreferrer"
+          <button
+            onClick={() => navigate('/report')}
             className="inline-block mt-2 px-4 py-2 bg-white text-black font-semibold text-xs rounded-xl hover:bg-zinc-200 transition-colors shadow-md"
           >
-            🌱 Add 5 Sample Reports
-          </a>
+            📸 Submit First Report
+          </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 stagger-children">

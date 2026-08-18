@@ -1,20 +1,31 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Helper: check if the current user is an admin via Custom Claims
+    function isAdmin() {
+      return request.auth != null && request.auth.token.admin == true;
+    }
+
+    // Helper: check if the current user owns the document
+    function isOwner() {
+      return request.auth != null && request.auth.uid == resource.data.user_id;
+    }
+
     // Reports collection
     match /reports/{reportId} {
       // Any authenticated user can read all reports
       allow read: if request.auth != null;
 
-      // Authenticated users can create reports
-      allow create: if request.auth != null;
+      // Authenticated users can create their own reports
+      allow create: if request.auth != null
+                    && request.resource.data.user_id == request.auth.uid;
 
-      // Authenticated users can update reports (status, upvotes, etc.)
-      allow update: if request.auth != null;
+      // Only the report owner can update their own report (e.g. description)
+      // Admins can update anything (status, severity, etc.)
+      allow update: if isAdmin() || isOwner();
 
-      // Authenticated users can delete reports
-      allow delete: if request.auth != null;
+      // Only admins or the report owner can delete a report
+      allow delete: if isAdmin() || isOwner();
     }
   }
 }
-

@@ -1,14 +1,18 @@
 node_modules/
 dist/
-.env
-.env*.local
-*.local
-.DS_Store
 
-# Firebase & Secret Keys
+# Environment variables — NEVER commit these
+.env
+.env.*
+!.env.example
+
+# Firebase service account key — contains private credentials
 serviceAccountKey.json
 *serviceAccountKey*.json
 *.pem
 *.key
-.system_generated/
 
+# OS / Editor
+.DS_Store
+*.local
+.system_generated/

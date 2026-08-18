@@ -9,26 +9,30 @@ import { auth } from '../lib/firebase'
 
 const AuthContext = createContext({})
 
-export function checkIsAdmin(user) {
-  if (!user || !user.email) return false
-  const email = user.email.toLowerCase()
-  const ADMIN_EMAILS = [
-    '9924051040@klu.ac.in',
-    'admin@civicsense.ai',
-    'admin@gmail.com',
-    'authority@civicsense.ai',
-  ]
-  return ADMIN_EMAILS.includes(email) || email.startsWith('admin') || email.includes('+admin@')
-}
-
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     // Listen for auth state changes
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      setUser(firebaseUser)
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        setUser(firebaseUser)
+
+        // ── Secure admin check via Firebase Custom Claims (server-assigned) ──
+        // This replaces the old client-side email comparison which was bypassable.
+        try {
+          const tokenResult = await firebaseUser.getIdTokenResult(/* forceRefresh= */ true)
+          setIsAdmin(tokenResult.claims.admin === true)
+        } catch {
+          setIsAdmin(false)
+        }
+      } else {
+        setUser(null)
+        setIsAdmin(false)
+      }
+
       setLoading(false)
     })
 
@@ -48,8 +52,6 @@ export function AuthProvider({ children }) {
   const signOut = async () => {
     await firebaseSignOut(auth)
   }
-
-  const isAdmin = checkIsAdmin(user)
 
   return (
     <AuthContext.Provider value={{ user, loading, isAdmin, signUp, signIn, signOut }}>
