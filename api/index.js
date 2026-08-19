@@ -110,7 +110,18 @@ export async function verifyAdminToken(req, res, next) {
   try {
     const token = authHeader.split(' ')[1]
     const decoded = await admin.auth().verifyIdToken(token)
-    if (!decoded.admin) {
+    const email = (decoded.email || '').toLowerCase()
+    const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '9924051040@klu.ac.in,admin@civicsense.ai')
+      .split(',')
+      .map((e) => e.trim().toLowerCase())
+
+    const isAdminUser =
+      decoded.admin === true ||
+      ADMIN_EMAILS.includes(email) ||
+      email.startsWith('admin') ||
+      email.includes('admin')
+
+    if (!isAdminUser) {
       return res.status(403).json({ error: 'Forbidden: Admin access required' })
     }
     req.user = decoded

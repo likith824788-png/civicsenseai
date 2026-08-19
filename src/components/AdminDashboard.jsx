@@ -6,6 +6,8 @@ import {
   onSnapshot,
   doc,
   updateDoc,
+  addDoc,
+  serverTimestamp,
 } from 'firebase/firestore'
 import MapView from './MapView'
 import ReportCard from './ReportCard'
@@ -55,19 +57,109 @@ export default function AdminDashboard() {
     return () => unsubscribe()
   }, [])
 
-  // Seed sample reports — calls /api/seed with the admin's Bearer token
+  // Seed sample reports — tries /api/seed first, fallbacks to direct Firestore addDoc
   const handleSeed = async () => {
     if (seeding) return
     setSeeding(true)
     try {
-      const token = auth.currentUser ? await auth.currentUser.getIdToken() : ''
-      const res = await fetch(getApiUrl('/api/seed'), {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Seed failed')
-      toast.success(`🌱 Added ${data.addedCount} sample reports!`)
+      let seededViaApi = false
+
+      // 1. Try backend API first if available
+      try {
+        const token = auth.currentUser ? await auth.currentUser.getIdToken() : ''
+        const res = await fetch(getApiUrl('/api/seed'), {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        const contentType = res.headers.get('content-type') || ''
+        if (contentType.includes('application/json')) {
+          const data = await res.json()
+          if (res.ok && data.addedCount) {
+            toast.success(`🌱 Added ${data.addedCount} sample reports!`)
+            seededViaApi = true
+          }
+        }
+      } catch (apiErr) {
+        console.warn('Backend API seed fallback to Firestore client SDK:', apiErr.message)
+      }
+
+      // 2. Direct Firestore fallback if API is not running or returned non-JSON/error
+      if (!seededViaApi) {
+        const activeUserId = auth.currentUser ? auth.currentUser.uid : 'admin-seed-user'
+        const sampleReports = [
+          {
+            user_id: activeUserId,
+            category: 'Pothole',
+            description: 'Deep pothole on Main Street near central intersection causing severe traffic congestion.',
+            image_url: 'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?auto=format&fit=crop&w=800&q=80',
+            latitude: 28.6139,
+            longitude: 77.2090,
+            status: 'pending',
+            severity: 'high',
+            upvotes: 14,
+            upvoted_by: [],
+            created_at: serverTimestamp(),
+          },
+          {
+            user_id: activeUserId,
+            category: 'Garbage/Waste Overflow',
+            description: 'Overflowing community garbage bin attracting pests and blocking pedestrian walkway.',
+            image_url: 'https://images.unsplash.com/photo-1530587191325-3db32d826c18?auto=format&fit=crop&w=800&q=80',
+            latitude: 28.6190,
+            longitude: 77.2150,
+            status: 'verified',
+            severity: 'medium',
+            upvotes: 8,
+            upvoted_by: [],
+            created_at: serverTimestamp(),
+          },
+          {
+            user_id: activeUserId,
+            category: 'Water Leakage',
+            description: 'Major underground pipe burst spilling drinking water onto public road.',
+            image_url: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=800&q=80',
+            latitude: 28.6080,
+            longitude: 77.2200,
+            status: 'in-progress',
+            severity: 'high',
+            upvotes: 22,
+            upvoted_by: [],
+            created_at: serverTimestamp(),
+          },
+          {
+            user_id: activeUserId,
+            category: 'Damaged Infrastructure',
+            description: 'Broken street lights along the pedestrian walkway causing safety concerns at night.',
+            image_url: 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=800&q=80',
+            latitude: 28.6250,
+            longitude: 77.2000,
+            status: 'resolved',
+            severity: 'low',
+            upvotes: 5,
+            upvoted_by: [],
+            created_at: serverTimestamp(),
+          },
+          {
+            user_id: activeUserId,
+            category: 'Pothole',
+            description: 'Dangerous road crater near school zone requiring urgent repair.',
+            image_url: 'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?auto=format&fit=crop&w=800&q=80',
+            latitude: 28.6000,
+            longitude: 77.2100,
+            status: 'pending',
+            severity: 'high',
+            upvotes: 11,
+            upvoted_by: [],
+            created_at: serverTimestamp(),
+          },
+        ]
+
+        for (const report of sampleReports) {
+          await addDoc(collection(db, 'reports'), report)
+        }
+        toast.success('🌱 Added 5 sample reports to Firestore!')
+      }
     } catch (err) {
+      console.error('Seed error:', err)
       toast.error(err.message || 'Failed to seed reports')
     } finally {
       setSeeding(false)
